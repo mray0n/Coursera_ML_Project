@@ -1,0 +1,35 @@
+---
+title: "Course Project Complimentary doc"
+author: "Miguel Rayon"
+date: "Wednesday, February 24, 2016"
+output: html_document
+---
+
+This document serves as a complimentary explanation to the Course project document
+
+First, unload the datasets (included also in this repository)
+Then check the web from <http://groupware.les.inf.puc-rio.br/har>. 
+
+All this data is avalaible thanks to the authors of th paper:
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H.[Qualitative Activity Recognition of Weight Lifting Exercises](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201). Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+Read more: <http://groupware.les.inf.puc-rio.br/har#ixzz416gWFNxX>
+First let's load the data an perform some checks
+
+```{r echo=FALSE}
+setwd("D:/Datos Miguel Rayon/Casa/Documents/Curso Data Science J Hopkins/Machine Learning/project/Coursera_ML_Project")
+```
+
+
+```{r}
+trainset<-read.csv("pml-training.csv",header=T)
+head(trainset)
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
