@@ -18,18 +18,380 @@ First let's load the data an perform some checks
 
 ```{r echo=FALSE}
 setwd("D:/Datos Miguel Rayon/Casa/Documents/Curso Data Science J Hopkins/Machine Learning/project/Coursera_ML_Project")
+load("D:/Datos Miguel Rayon/Casa/Documents/Curso Data Science J Hopkins/Machine Learning/project/Coursera_ML_Project/project.RData")
 ```
 
 
 ```{r}
 trainset<-read.csv("pml-training.csv",header=T)
 head(trainset)
+summary(trainset)
+testset<-read.csv("pml-testing.csv",header=T)
 ```
 
-You can also embed plots, for example:
+Packages and functions to load in the workspace
 
-```{r, echo=FALSE}
-plot(cars)
+```{r}
+library(caret)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(randomForest)
+library(rpart)
+library(klaR)
+library(pROC)
+library(rattle)
+library(tree)
+library(gbm)
+fancyRpartPlot(rt.pruned)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+First we are goin extract the training set. We are taking 80% of the total cases
+
+
+```{r}
+train = createDataPartition(trainset$classe, p=0.8, list=FALSE)
+training = trainset[ train,]
+testing = trainset[-train,]
+```
+
+Let's take some measurements of the dataframe:
+```{r}
+## Average of each column
+average<-summarise_each(training,funs(mean))
+## standard deviation of each column
+standard_dev<-summarise_each(training,funs(sd))
+## NA count for each column:
+na_count <-sapply(training, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count)
+names(trainingNA)
+## vamos a ver el efecto en CLASSE en los NA de las variables de na_count
+by_Classe<-group_by(training,classe)
+by_Classe<-filter (by_Classe, max_roll_forearm>-1000,var_accel_forearm>-1000)
+summarize(by_Classe,n() )
+```
+
+siguiente: ver si en todos los que ha sacado NA, son de unos pacientes o de un ejercicio deteminado
+
+```{r}
+
+```
+
+## The description of the data set is as follows:
+Weight Lifting Exercises Dataset
+
+
+![](D:\Datos Miguel Rayon\Casa\Documents\Curso Data Science J Hopkins\Machine Learning\project\Coursera_ML_Project\on-body-sensing-schema.png)
+
+
+This human activity recognition research has traditionally focused on discriminating between different activities, i.e. to predict "which" activity was performed at a specific point in time (like with the Daily Living Activities dataset above). The approach we propose for the Weight Lifting Exercises dataset is to investigate "how (well)" an activity was performed by the wearer. The "how (well)" investigation has only received little attention so far, even though it potentially provides useful information for a large variety of applications,such as sports training.
+In this work (see the paper) we first define quality of execution and investigate three aspects that pertain to qualitative activity recognition: the problem of specifying correct execution, the automatic and robust detection of execution mistakes, and how to provide feedback on the quality of execution to the user. We tried out an on-body sensing approach (dataset here), but also an "ambient sensing approach" (by using Microsoft Kinect - dataset still unavailable)
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. We made sure that all participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).
+
+## lets begin with the model
+We are going to perform with a few models, in the training set, and then we will check them against the testing
+Models to try:
+*Model base prediction:
+  +linear discriminant analysis(lda)
+  +naives-bayes (nb)
+*Random forest
+  +rf
+*Boosting
+  +gbm
+* Predicting trees
+  +rpart
+Also, in our dataset we will get rid of some variables:
+TImestamp
+
+```{r}
+timestamp<-c("raw_timestamp_part_1", "raw_timestamp_part_2" , "cvtd_timestamp", "new_window", "num_window","X" )
+featurePlot(x = training[, timestamp],
+            y = training$classe,
+            plot = "scatter",
+            layout = c(5, 1))
+```
+
+Drop the variables for timestamp and windows and X and also all NA's:
+```{r}
+
+
+nasv<-c("max_roll_belt","max_picth_belt","min_roll_belt","min_pitch_belt","amplitude_roll_belt","amplitude_pitch_belt","var_total_accel_belt","avg_roll_belt","stddev_roll_belt","var_roll_belt","avg_pitch_belt","stddev_pitch_belt","var_pitch_belt","avg_yaw_belt","stddev_yaw_belt","var_yaw_belt","var_accel_arm","avg_roll_arm","stddev_roll_arm","var_roll_arm","avg_pitch_arm","stddev_pitch_arm","var_pitch_arm","avg_yaw_arm","stddev_yaw_arm","var_yaw_arm","max_roll_arm","max_picth_arm","max_yaw_arm","min_roll_arm","min_pitch_arm","min_yaw_arm","amplitude_roll_arm","amplitude_pitch_arm","amplitude_yaw_arm","max_roll_dumbbell","max_picth_dumbbell","min_roll_dumbbell","min_pitch_dumbbell","amplitude_roll_dumbbell","amplitude_pitch_dumbbell","var_accel_dumbbell","avg_roll_dumbbell","stddev_roll_dumbbell","var_roll_dumbbell" ,"avg_pitch_dumbbell","stddev_pitch_dumbbell","var_pitch_dumbbell","avg_yaw_dumbbell","stddev_yaw_dumbbell","var_yaw_dumbbell","max_roll_forearm","max_picth_forearm","min_roll_forearm","min_pitch_forearm","amplitude_roll_forearm","amplitude_pitch_forearm","var_accel_forearm","avg_roll_forearm","stddev_roll_forearm","var_roll_forearm","avg_pitch_forearm","stddev_pitch_forearm","var_pitch_forearm","avg_yaw_forearm","stddev_yaw_forearm","var_yaw_forearm","kurtosis_roll_belt", "kurtosis_picth_belt", "kurtosis_yaw_belt", "skewness_roll_belt","skewness_roll_belt.1", "skewness_yaw_belt",  "max_yaw_belt", "min_yaw_belt", "amplitude_yaw_belt", "kurtosis_roll_arm", "kurtosis_picth_arm", "kurtosis_yaw_arm", "skewness_roll_arm", "skewness_pitch_arm", "skewness_yaw_arm", "kurtosis_roll_dumbbell","kurtosis_picth_dumbbell", "kurtosis_yaw_dumbbell", "skewness_roll_dumbbell", "skewness_pitch_dumbbell", "skewness_yaw_dumbbell", "max_yaw_dumbbell", "min_yaw_dumbbell", "amplitude_yaw_dumbbell", "kurtosis_roll_forearm", "kurtosis_picth_forearm", "kurtosis_yaw_forearm", "min_yaw_forearm", "amplitude_yaw_forearm", "raw_timestamp_part_1", "raw_timestamp_part_2" , "cvtd_timestamp", "new_window", "num_window","X", "kurtosis_roll_forearm", "kurtosis_picth_forearm", "kurtosis_yaw_forearm", "skewness_roll_forearm",  "skewness_pitch_forearm", "skewness_yaw_forearm", "max_yaw_forearm", "min_yaw_forearm", "amplitude_yaw_forearm", "amplitude_yaw_dumbbell", "skewness_pitch_dumbbell", "skewness_yaw_dumbbell", "max_yaw_dumbbell", "min_yaw_dumbbell",  "kurtosis_picth_dumbbell", "kurtosis_yaw_dumbbell", "skewness_roll_dumbbell", "kurtosis_roll_dumbbell", "kurtosis_picth_arm", "kurtosis_yaw_arm", "skewness_roll_arm", "skewness_pitch_arm", "skewness_yaw_arm", "kurtosis_roll_arm", "amplitude_yaw_belt", "skewness_roll_belt", "skewness_roll_belt.1", "skewness_yaw_belt",  "max_yaw_belt", "     yaw_belt","total_accel_belt", "kurtosis_roll_belt", "kurtosis_picth_belt", "kurtosis_yaw_belt", "min_yaw_belt" )
+traininged<-training[ , !(names(training) %in% nasv)]
+```
+
+First prediction trees
+```{r}
+set.seed(125)
+modrpart<-train(classe~.,data=traininged, method="rpart")
+## si hago el plot, no me sale ningun output para D:
+fancyRpartPlot(modrpart$finalModel)
+## Valorando la escala de importancia de variables: 
+varImp(modrpart,scale=FALSE)
+## iteración: voy a utilizar sólo las variables con valor en el varimp:
+modrpart2<-train(classe~ pitch_forearm+ magnet_dumbbell_y+roll_forearm+roll_belt+accel_belt_z+magnet_belt_y+yaw_belt+magnet_dumbbell_z+magnet_arm_x+accel_arm_x+roll_dumbbell+roll_arm+accel_dumbbell_y,data=traininged, method="rpart")
+fancyRpartPlot(modrpart2$finalModel)
+
+## parece exactamente el mismo resultado
+g1<-ggplot(traininged, aes(x=roll_belt, y=pitch_forearm, color=classe)) + geom_point(shape=1)
+g2<-ggplot(traininged, aes(x=roll_belt, y=magnet_dumbbell_y, color=classe)) + geom_point(shape=1)
+g3<-ggplot(traininged, aes(x=roll_belt, y=roll_forearm, color=classe)) + geom_point(shape=1)
+multiplot(g1,g2,g3,cols=3)
+Importantvar<-c("pitch_forearm", "magnet_dumbbell_y", "roll_forearm", "roll_belt", "accel_belt_z", "magnet_belt_y", "yaw_belt", "magnet_dumbbell_z", "magnet_arm_x", "accel_arm_x", "roll_dumbbell", "roll_arm", "accel_dumbbell_y", "classe")
+Important<-training[ , (names(training) %in% Importantvar)]
+## graficomuy lento: featurePlot(x = Important,y = Important$classe,plot = "pairs",auto.key = list(columns = 4))
+
+## otra simulacion:
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           ## repeated ten times
+                           repeats = 10)
+modgbm<-train(classe~.,data=traininged, method="gbm", trControl = fitControl, verbose=FALSE)
+## error de memoria
+
+## probamos random forest
+modrf<-train(classe~.,data=traininged, method="rf",prox=TRUE, tuneGrid = data.frame(mtry = 3))
+## Da error in train.default(x, y, weights = w, ...) : Stopping
+## probamos otro:
+modrf<-train(classe~.,data=traininged, method="rf", tuneGrid = data.frame(mtry = 3))
+## genial modrf si que ha dado resultado
+
+## probamos naive:
+naives<-train(classe~.,data=traininged, method="nb")
+## mmm funciona!!
+
+## y el ultimo modelo:
+modlda<-train(classe~.,traininged, method="lda")
+## funnciona!!
+
+## vamos a intentar un tree chaciendo pruning
+## simulamos el modelo tree
+modtree<-tree(classe~.,data=traininged)
+## es rapidisimo, practicameente instantaneo
+## vamos a hacer pruning
+cvmodtree<-cv.tree(modtree,FUN=prune.misclass)
+## menos de un minuto; el minimo dev es 18 o 19
+par(mfrow =c(1,2))
+plot(cvmodtree$size ,cvmodtree$dev ,type="b")
+plot(cvmodtree$k ,cvmodtree$dev ,type="b")
+## Vamos a volver a modelar con pruning estableciendo 18 nodos
+modprunetree18<-prune.misclass(modtree,best=18)
+## inmediato
+modprunetree19<-prune.misclass(modtree,best=19)
+## inmediato 
+modprunetree9<-prune.misclass(modtree,best=9)
+
+modprunetree14<-prune.misclass(modtree,best=14)
+
+modprunetree25<-prune.misclass(modtree,best=22)
+
+## haciendo prune tree no mejoramos
+## Hacemos bagging segun statistical learning
+set.seed(1)
+modbag<-randomForest(classe~.,data=traininged,mtry=52, importance=TRUE)
+
+
+## Empieza a las 17.50 acaba a las 17.53
+## HAcemos random forest. Empezamos con el estandar. Es el estandar porque utilizamos mtry=7, que es sqrt(52), siendo 52 el numero de variables que utilizamos 
+modrandomf<-randomForest(classe~.,traininged,mtry=7, importance=TRUE)
+## empieza a las 20.06 acaba a las20.08
+modrandomf<-randomForest(classe~.,traininged,mtry=7, importance=TRUE)
+## solo por probar voy a cambiar el valor mtry (las variables que se consideran para crecer el arbol) a 5
+modrandomf2<-randomForest(classe~.,traininged,mtry=5, importance=TRUE)
+## empieza a las 20.14 fin a las 2016
+
+## probar con mtry=10
+modrandomf3<-randomForest(classe~.,traininged,mtry=10, importance=TRUE)
+
+## probamos sin especificar valores, vamos a ver que saca por defecto
+modrandomf4<-randomForest(classe~.,traininged, importance=TRUE)
+
+## probamos boosting
+set.seed(1)
+modgbm<-gbm(classe~.,data=traininged,distribution="multinomial",n.trees=500,interaction.depth=4)
+## Empieza a las 9.20 termina  alas 9.24
+
+## por ver diferencias podremos probar mas adelante este
+modrf2<-train(classe~.,data=traininged, method="rf")
+
+
+```
+
+
+
+
+Let's check ho the models did work:
+
+```{r}
+prpart<-predict(modrpart,testing)
+pnaives<-predict(naives,testing)
+prf<-predict(modrf,testing)
+plda<-predict(modlda,testing)
+ptree<-predict(modtree,testing,type="class")
+pprunetree18<-predict(modprunetree18,testing,type="class")
+pprunetree19<-predict(modprunetree19,testing,type="class")
+pprunetree9<-predict(modprunetree9,testing,type="class")
+pprunetree14<-predict(modprunetree14,testing,type="class")
+pbag<-predict(modbag,testing)
+prandomf<-predict(modrandomf,testing)
+prandomf2<-predict(modrandomf2,testing)
+prandomf3<-predict(modrandomf3,testing)
+prandomf4<-predict(modrandomf4,testing)
+pgbm<-predict(modgbm,testing,n.trees=500)
+
+real<-testing$classe
+```
+
+
+Now comparing to the testing values
+
+```{r}
+accnaives<-table(pnaives,testing$classe)
+## 73%
+accprpart<-table(prpart,testing$classe)
+## 49%
+accprf<-table(prf,testing$classe)
+## 99,23%
+acclda<-table(plda,testing$classe)
+##73%
+acctree<-table(ptree,real)
+## 68%
+accmodprune18<-table(pprunetree18,real)
+## 68%
+accmodprune19<-table(pprunetree19,real)
+## 68% no cambia nada!
+accmodprune9<-table(pprunetree9,real)
+## 62%
+accmodprune14<-table(pprunetree14,real)
+##64%
+## Haciendo prunetrees no mejoramos
+accmodbag<-table(pbag,real)
+##99%
+accmodrandomf<-table(prandomf,real)
+##99.59125%
+accmodrandomf2<-table(prandomf2,real)
+## 99,46% al coger menos variables
+accmodrandomf3<-table(prandomf3,real)
+## 99,59125% con mtry cogiendo más variables que SQRT(var), pero sale exactamente que con mtyr estandar
+accmodrandomf4<-table(prandomf4,real)
+## 99.56666%--> ligeramente superior
+accmodgbm<-table(pgbm,real)
+```
+
+```{r}
+## Vamos a simular el testset con radomforest original:
+output<-predict(modrandomf,testset)
+```
+
+
+
+Ahora vamos a revisar algunos valores y ver algunas medidas de errores e importancia de variables
+
+```{r}
+importance(modrandomf)
+importance(modrf)
+## no funciona con el random forest del paquete caret
+varImpPlot(modrandomf)
+varImpPlot(modrandomf2)
+```
+
+
+
+from all these comparison the random forest perfomrs the best. This is the one we are going to be using
+
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++
+```{r}
+## naives bayes analisys:
+set.seed(125) 
+naives<-train(classe~.,data=traininged, method="nb")
+modlda<-train(classe~.,traininged, method="lda")
+modrpart<-train(classe~.,data=traininged, method="rpart")
+modrf<-train(classe~.,data=traininged, method="rf",prox=TRUE)
+
+## vamos a intentar con cross validation
+
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           ## repeated ten times
+                           repeats = 10)
+set.seed(825)
+modgbm<-train(classe~.,data=traininged, method="gbm", trControl = fitControl, verbose=FALSE)
+## Para comprara predicciones:
+## modlda = train(Species ~ .,data=training,method="lda")
+## modnb = train(Species ~ ., data=training,method="nb")
+## plda = predict(modlda,testing); pnb = predict(modnb,testing)
+## table(plda,pnb)
+prpart<-predict(modrpart,testing)
+prparted<- predict(modrpart,testing)
+pnaives<-predict(naives,testing)
+prf<-predict(modrf,testing)
+pgbm<-predict(modgbm,testing)
+```
+
+
+```{r}
+accnaives<-table(pnaives,testing$classe)
+accprpart<-table(prpart,testing$classe)
+accprf<-table(prf,testing$classe)
+accpgbm<-table(pgbm,testing$classe)
+```
+Vamos a utilizar 45 filas del testinged para comparar
+```{r}
+testinged1<-slice(testinged,1:45)
+## pasamos la funcion de prediccion sobre esta matriz:
+prpart<-predict(modrpart,newdata=testinged1)
+prparted1<- predict(modrpart,newdata=testinged1)
+pnaives<-predict(naives,testing)
+prf<-predict(modrf,testing)
+pgbm<-predict(modgbm,testing)
+```
+
+PROBAR EN RANDOM FOREST:
+which.min(rf$mse)
+
+Ojo: puede ser interesante ver la importancia de las variables en los analisis en caret con:
+varImp(modelo, scale = FALSE)
+
+Quito la
+para comprobar el moderlo de rpart
+```{r}
+par(mar = rep(2, 4))
+
+plot(modrpart$finalModel, uniform=TRUE, 
+      main="Classification Tree")
+text(modrpart$finalModel, use.n=TRUE, all=TRUE, cex=.8)
+
+modrpart$cptable[which.min(modrpart$cptable[,"xerror"]),"CP"]
+```
+
+to check if all my problems come through the NA's I am taking out all NA's
+
+```{r}
+nasv<-c("max_roll_belt","max_picth_belt","min_roll_belt","min_pitch_belt","amplitude_roll_belt","amplitude_pitch_belt","var_total_accel_belt","avg_roll_belt","stddev_roll_belt","var_roll_belt","avg_pitch_belt","stddev_pitch_belt","var_pitch_belt","avg_yaw_belt","stddev_yaw_belt","var_yaw_belt","var_accel_arm","avg_roll_arm","stddev_roll_arm","var_roll_arm","avg_pitch_arm","stddev_pitch_arm","var_pitch_arm","avg_yaw_arm","stddev_yaw_arm","var_yaw_arm","max_roll_arm","max_picth_arm","max_yaw_arm","min_roll_arm","min_pitch_arm","min_yaw_arm","amplitude_roll_arm","amplitude_pitch_arm","amplitude_yaw_arm","max_roll_dumbbell","max_picth_dumbbell","min_roll_dumbbell","min_pitch_dumbbell","amplitude_roll_dumbbell","amplitude_pitch_dumbbell","var_accel_dumbbell","avg_roll_dumbbell","stddev_roll_dumbbell","var_roll_dumbbell" ,"avg_pitch_dumbbell","stddev_pitch_dumbbell","var_pitch_dumbbell","avg_yaw_dumbbell","stddev_yaw_dumbbell","var_yaw_dumbbell","max_roll_forearm","max_picth_forearm","min_roll_forearm","min_pitch_forearm","amplitude_roll_forearm","amplitude_pitch_forearm","var_accel_forearm","avg_roll_forearm","stddev_roll_forearm","var_roll_forearm","avg_pitch_forearm","stddev_pitch_forearm","var_pitch_forearm","avg_yaw_forearm","stddev_yaw_forearm","var_yaw_forearm","kurtosis_roll_belt", "kurtosis_picth_belt", "kurtosis_yaw_belt", "skewness_roll_belt","skewness_roll_belt.1", "skewness_yaw_belt",  "max_yaw_belt", "min_yaw_belt", "amplitude_yaw_belt", "kurtosis_roll_arm", "kurtosis_picth_arm", "kurtosis_yaw_arm", "skewness_roll_arm", "skewness_pitch_arm", "skewness_yaw_arm", "kurtosis_roll_dumbbell","kurtosis_picth_dumbbell", "kurtosis_yaw_dumbbell", "skewness_roll_dumbbell", "skewness_pitch_dumbbell", "skewness_yaw_dumbbell", "max_yaw_dumbbell", "min_yaw_dumbbell", "amplitude_yaw_dumbbell", "kurtosis_roll_forearm", "kurtosis_picth_forearm", "kurtosis_yaw_forearm", "min_yaw_forearm", "amplitude_yaw_forearm" )
+traininged<-select(traininged,-one_of(nasv))
+
+```
+
+re trian the model:
+```{r}
+modrpart1<-train(classe~.,data=traininged, method="rpart")
+## if we plot the tree, only 3 variables are predicted:
+par(mar = rep(2, 4))
+plot(modrpart$finalModel, uniform=TRUE,main="Classification Tree")
+text(modrpart$finalModel, use.n=TRUE, all=TRUE, cex=.8)
+fancyRpartPlot(modrpart$finalModel)
+varImp(modrpart,scale=FALSE)
+## da error rpart
+##probamos random forest
+modrf<-train(classe~.,data=traininged, method="rf",prox=TRUE)
+## Error tambien rf
+naives<-train(classe~.,data=traininged, method="nb")
+```
+

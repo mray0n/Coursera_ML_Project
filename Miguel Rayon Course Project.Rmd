@@ -5,18 +5,58 @@ date: "Wednesday, February 24, 2016"
 output: html_document
 ---
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Abstract
+Investigation is going on in the area of healthcare and fitness, in order to "coach" the users on whether the excersise they are doing is being executed correctly or not.
+The "systems"used to coach, take data form sensors applied to the body (specific sensors or the ones built in a smartphone) and infere whether the position of the body is the right one to perform the exercise.
+The purpose of this project is to develop a model to asses if the exercise is being done right or wrong using measures taken by sensors in the body while 6 participants where perforiming the exercise, first in the correct way (class A), and in 5 other wrong different ways (class B,C,D,E)
+Several models are used and tested, with the final model being a Randomforest, with 500 trees, and using 7 variables at each split, and an out of bag estimate error of 0.46%. This model has given a 99.56% accuracy in the tests performed
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r}
-summary(cars)
+## Preprocessing, data cleaning, cross validation
+Initial analisys to the data is done.
+Variables not valid as predictors are taken out: all timestamps variables and the row numbers
+It is considered whether the name of the subject () should play as a predictor or not. It will overfit for these 5 individuales, but since both the train_set and the testset have these individuals it is considered that including them will be beneficial. 
+Several variables (66) are ditected to have a high proportion of NA's values. These variables apperar to have values only in a few given observations. These variables are also taken out of the analysis. The final set of data to train the models contain 53 variables.
+We split the training data, retaining 80% of the dataset to train the model and leaving 20% of the dataset to test all the models. Theone with th better performance will be kept
+The cross validation is implemented in the Machine learning algorithms that we are using, Predicting/classification trees and random forest
+
+## The models at play
+
+* First I try naives (73% accuracy) random forest (99.23% acc), prediction trees (49% acc) linear discriminant analisys (73% acc), through the caret package and the methods lda nb rf rpart
+
+* In a second phase, I try directly with the functions: 
++ Classification trees using function tree and also pruning (accuracy or 68%)
++ Bagging, using function randomForest and mtry=52 (number of predictors), reaching accuracy of 99%
++ Random Forest, using function randomForest and tuning the parameter mtry to reach accuracy of 99.56%.7 different values for the number  of variables are used, being mtry= 7 the optimum value
+
+To highlight the lighter the models run when doing directly the functions instead of going through the Caret package. In my case an execution in caret could well last between 30 minutes and an hour, whilst entering directly the function never took longer than 5 minutes
+
+Also to highlight that due to the nature of random forest, cross validation is implicitly done in the algorithm. Covariance and potential errors whrn only using importat variables are also discarded due to the nature of the algorithm
+
+The complete code can be found [here](http://rpubs.com/mray0n/CourseraMLProject)
+
+
+## The model selected
+The model finally selected is produced by random forest algorithm:
+
+```{r eval=FALSE}
+modrandomf<-randomForest(classe~.,traininged,mtry=7, importance=TRUE)
+
+Call:
+ randomForest(formula = classe ~ ., data = traininged, mtry = 7,      importance = TRUE) 
+               Type of random forest: classification
+                     Number of trees: 500
+No. of variables tried at each split: 7
+
+        OOB estimate of  error rate: 0.46%
+Confusion matrix:
+     A    B    C    D    E  class.error
+A 4462    1    0    0    1 0.0004480287
+B   15 3017    6    0    0 0.0069124424
+C    0   12 2724    2    0 0.0051132213
+D    0    0   26 2545    2 0.0108822386
+E    0    0    2    6 2878 0.0027720028
+
 ```
 
-You can also embed plots, for example:
 
-```{r, echo=FALSE}
-plot(cars)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

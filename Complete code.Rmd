@@ -1,0 +1,183 @@
+---
+title: "ML Project complete code"
+author: "Miguel Rayon"
+date: "Saturday, April 16, 2016"
+output: html_document
+---
+
+This markdown document contains all the code used for the ML project
+
+Test and training data sets:
+
+```{r eval=FALSE}
+trainset<-read.csv("pml-training.csv",header=T)
+head(trainset)
+summary(trainset)
+testset<-read.csv("pml-testing.csv",header=T)
+```
+
+Libraries used:
+```{r eval=FALSE}
+library(caret)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(randomForest)
+library(rpart)
+library(klaR)
+library(pROC)
+library(rattle)
+library(tree)
+library(gbm)
+fancyRpartPlot(rt.pruned)
+```
+
+Split dataset in training and test, drop the variables for timestamp and windows and X and also all NA's:
+```{r eval=FALSE}
+train = createDataPartition(trainset$classe, p=0.8, list=FALSE)
+training = trainset[ train,]
+testing = trainset[-train,]
+
+nasv<-c("max_roll_belt","max_picth_belt","min_roll_belt","min_pitch_belt","amplitude_roll_belt","amplitude_pitch_belt","var_total_accel_belt","avg_roll_belt","stddev_roll_belt","var_roll_belt","avg_pitch_belt","stddev_pitch_belt","var_pitch_belt","avg_yaw_belt","stddev_yaw_belt","var_yaw_belt","var_accel_arm","avg_roll_arm","stddev_roll_arm","var_roll_arm","avg_pitch_arm","stddev_pitch_arm","var_pitch_arm","avg_yaw_arm","stddev_yaw_arm","var_yaw_arm","max_roll_arm","max_picth_arm","max_yaw_arm","min_roll_arm","min_pitch_arm","min_yaw_arm","amplitude_roll_arm","amplitude_pitch_arm","amplitude_yaw_arm","max_roll_dumbbell","max_picth_dumbbell","min_roll_dumbbell","min_pitch_dumbbell","amplitude_roll_dumbbell","amplitude_pitch_dumbbell","var_accel_dumbbell","avg_roll_dumbbell","stddev_roll_dumbbell","var_roll_dumbbell" ,"avg_pitch_dumbbell","stddev_pitch_dumbbell","var_pitch_dumbbell","avg_yaw_dumbbell","stddev_yaw_dumbbell","var_yaw_dumbbell","max_roll_forearm","max_picth_forearm","min_roll_forearm","min_pitch_forearm","amplitude_roll_forearm","amplitude_pitch_forearm","var_accel_forearm","avg_roll_forearm","stddev_roll_forearm","var_roll_forearm","avg_pitch_forearm","stddev_pitch_forearm","var_pitch_forearm","avg_yaw_forearm","stddev_yaw_forearm","var_yaw_forearm","kurtosis_roll_belt", "kurtosis_picth_belt", "kurtosis_yaw_belt", "skewness_roll_belt","skewness_roll_belt.1", "skewness_yaw_belt",  "max_yaw_belt", "min_yaw_belt", "amplitude_yaw_belt", "kurtosis_roll_arm", "kurtosis_picth_arm", "kurtosis_yaw_arm", "skewness_roll_arm", "skewness_pitch_arm", "skewness_yaw_arm", "kurtosis_roll_dumbbell","kurtosis_picth_dumbbell", "kurtosis_yaw_dumbbell", "skewness_roll_dumbbell", "skewness_pitch_dumbbell", "skewness_yaw_dumbbell", "max_yaw_dumbbell", "min_yaw_dumbbell", "amplitude_yaw_dumbbell", "kurtosis_roll_forearm", "kurtosis_picth_forearm", "kurtosis_yaw_forearm", "min_yaw_forearm", "amplitude_yaw_forearm", "raw_timestamp_part_1", "raw_timestamp_part_2" , "cvtd_timestamp", "new_window", "num_window","X", "kurtosis_roll_forearm", "kurtosis_picth_forearm", "kurtosis_yaw_forearm", "skewness_roll_forearm",  "skewness_pitch_forearm", "skewness_yaw_forearm", "max_yaw_forearm", "min_yaw_forearm", "amplitude_yaw_forearm", "amplitude_yaw_dumbbell", "skewness_pitch_dumbbell", "skewness_yaw_dumbbell", "max_yaw_dumbbell", "min_yaw_dumbbell",  "kurtosis_picth_dumbbell", "kurtosis_yaw_dumbbell", "skewness_roll_dumbbell", "kurtosis_roll_dumbbell", "kurtosis_picth_arm", "kurtosis_yaw_arm", "skewness_roll_arm", "skewness_pitch_arm", "skewness_yaw_arm", "kurtosis_roll_arm", "amplitude_yaw_belt", "skewness_roll_belt", "skewness_roll_belt.1", "skewness_yaw_belt",  "max_yaw_belt", "     yaw_belt","total_accel_belt", "kurtosis_roll_belt", "kurtosis_picth_belt", "kurtosis_yaw_belt", "min_yaw_belt" )
+traininged<-training[ , !(names(training) %in% nasv)]
+```
+The models
+First using caret
+```{r eval=FALSE}
+
+First prediction trees
+set.seed(125)
+
+## prediction trees
+modrpart<-train(classe~.,data=traininged, method="rpart")
+
+## Random forest
+modrf<-train(classe~.,data=traininged, method="rf", tuneGrid = data.frame(mtry = 3))
+## genial modrf si que ha dado resultado
+
+## naive:
+naives<-train(classe~.,data=traininged, method="nb")
+
+## linear discriminant analysis
+modlda<-train(classe~.,traininged, method="lda")
+
+```
+
+And the using directly the function, instead of going through caret:
+
+```{r eval=FALSE}
+
+## Tree model
+modtree<-tree(classe~.,data=traininged)
+## almost no time!!
+## Atempt pruning
+cvmodtree<-cv.tree(modtree,FUN=prune.misclass)
+## Again very quick. Minimun 18 or 19 nodes
+par(mfrow =c(1,2))
+plot(cvmodtree$size ,cvmodtree$dev ,type="b")
+plot(cvmodtree$k ,cvmodtree$dev ,type="b")
+## Lets try again, pruning to 18 nodes
+modprunetree18<-prune.misclass(modtree,best=18)
+##Now 19
+modprunetree19<-prune.misclass(modtree,best=19)
+## now 9 
+modprunetree9<-prune.misclass(modtree,best=9)
+## 14 nodes
+modprunetree14<-prune.misclass(modtree,best=14)
+## 22 nodes
+modprunetree25<-prune.misclass(modtree,best=22)
+
+## let's do baggin as per the elements of statistical learning
+set.seed(1)
+modbag<-randomForest(classe~.,data=traininged,mtry=52, importance=TRUE)
+
+
+##last 3 minutes
+## Now do random forestbeginning with the standar, souse mtry=7, (i.e. sqrt(52), 52 being the number of variables 
+modrandomf<-randomForest(classe~.,traininged,mtry=7, importance=TRUE)
+## takes 2 minutes
+modrandomf<-randomForest(classe~.,traininged,mtry=7, importance=TRUE)
+## Let´s try another mtry value (mtry is the number of parameters randomly used to grow the tree) to 5
+modrandomf2<-randomForest(classe~.,traininged,mtry=5, importance=TRUE)
+
+## and now =10
+modrandomf3<-randomForest(classe~.,traininged,mtry=10, importance=TRUE)
+
+## and the default option
+modrandomf4<-randomForest(classe~.,traininged, importance=TRUE)
+
+```
+
+Now lets predict all the models with the testing dataset we had split initially
+
+```{r eval=FALSE}
+prpart<-predict(modrpart,testing)
+pnaives<-predict(naives,testing)
+prf<-predict(modrf,testing)
+plda<-predict(modlda,testing)
+ptree<-predict(modtree,testing,type="class")
+pprunetree18<-predict(modprunetree18,testing,type="class")
+pprunetree19<-predict(modprunetree19,testing,type="class")
+pprunetree9<-predict(modprunetree9,testing,type="class")
+pprunetree14<-predict(modprunetree14,testing,type="class")
+pbag<-predict(modbag,testing)
+prandomf<-predict(modrandomf,testing)
+prandomf2<-predict(modrandomf2,testing)
+prandomf3<-predict(modrandomf3,testing)
+prandomf4<-predict(modrandomf4,testing)
+## and this is the values we are comparing against:
+real<-testing$classe
+
+```
+
+Now comparing to the testing values
+
+```{r eval=FALSE}
+accnaives<-table(pnaives,testing$classe)
+## 73%
+accprpart<-table(prpart,testing$classe)
+## 49%
+accprf<-table(prf,testing$classe)
+## 99,23%
+acclda<-table(plda,testing$classe)
+##73%
+acctree<-table(ptree,real)
+## 68%
+accmodprune18<-table(pprunetree18,real)
+## 68%
+accmodprune19<-table(pprunetree19,real)
+## 68% 
+accmodprune9<-table(pprunetree9,real)
+## 62%
+accmodprune14<-table(pprunetree14,real)
+##64%
+## pruning do not give better value than standard
+accmodbag<-table(pbag,real)
+##99%
+accmodrandomf<-table(prandomf,real)
+##99.59125%
+accmodrandomf2<-table(prandomf2,real)
+## 99,46% al coger menos variables
+accmodrandomf3<-table(prandomf3,real)
+## 99,59125% with  mtry cogiendo taking more variables than SQRT(var), the same as with default
+accmodrandomf4<-table(prandomf4,real)
+## 99.56666%--> ligeramente superior
+```
+
+In order to calculate the % of accuraccy usinf the matrix, I have created the function:
+```{r eval=FALSE}
+Accuracy<-function (x){
+  a<-diag(x)
+  diaga<-sum(a)
+  b<-sum(x)
+  diaga/b
+  }
+## in case you want to know the accuracy of the acctree, you have to do Accuracy(acctree)
+```
+
+
+```
+
+
+
+
